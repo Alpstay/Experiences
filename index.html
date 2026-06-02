@@ -4,7 +4,6 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Alpstay Experiences · Smart Hotel Saslong</title>
-  <meta name="description" content="Esperienze esclusive · Smart Hotel Saslong · Val Gardena · saslong.ai"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Belleza&family=Lato:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&display=swap" rel="stylesheet"/>
@@ -1737,6 +1736,7 @@ function AlpstayMobility() {
   const s = S[lang];
   const [step, setStep] = useState(0);
   const [sent, setSent] = useState(false);
+  const [emailSendStatus, setEmailSendStatus] = useState(null);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState(null);
   const [errors, setErrors] = useState({});
@@ -1812,20 +1812,27 @@ function AlpstayMobility() {
       setEmailContent({ ce, ae });
 
       // ── Invio automatico email all'hotel via EmailJS ────────────────────
+      let emailStatus = "non_inviata";
       if(window.emailjs) {
         try {
-          await window.emailjs.send("service_2ovf6na", "alpstay_admin", {
+          const res = await window.emailjs.send("service_2ovf6na", "alpstay_admin", {
             name: `${b.nome} ${b.cognome}`,
             email: b.email,
             title: ae.subject,
             message: ae.body,
             time: new Date().toLocaleString("it-IT"),
           });
-          console.log("✅ Email inviata all'hotel via EmailJS");
+          console.log("✅ Email inviata:", res.status, res.text);
+          emailStatus = "ok";
         } catch(emailErr) {
-          console.warn("EmailJS error (prenotazione comunque salvata in Firebase):", emailErr);
+          console.error("❌ EmailJS error:", emailErr);
+          emailStatus = "errore: " + (emailErr?.text || emailErr?.message || JSON.stringify(emailErr));
         }
+      } else {
+        emailStatus = "emailjs_non_caricato";
+        console.error("❌ window.emailjs non disponibile — SDK non caricato");
       }
+      setEmailSendStatus(emailStatus);
 
       setSent(true);
     } catch(err) {
@@ -1902,6 +1909,22 @@ function AlpstayMobility() {
             {{"it":"Apri in Google Maps","de":"In Google Maps öffnen","en":"Open in Google Maps","zh":"在谷歌地图中打开"}[lang]}
           </a>
         </div>}
+        {emailSendStatus && (
+          <div style={{
+            margin:"1rem 0",padding:".9rem 1.1rem",borderRadius:"10px",fontSize:".82rem",
+            background: emailSendStatus==="ok" ? "#E8F5E9" : "#FFF3E0",
+            border: emailSendStatus==="ok" ? "1.5px solid #66BB6A" : "1.5px solid #FFB74D",
+            color: emailSendStatus==="ok" ? "#2E7D32" : "#E65100"
+          }}>
+            {emailSendStatus==="ok"
+              ? "✅ Email inviata automaticamente a info@alpstay.eu"
+              : emailSendStatus==="emailjs_non_caricato"
+                ? "⚠️ EmailJS non caricato. Usa il pulsante 'Apri Email' qui sotto per inviare manualmente."
+                : emailSendStatus==="non_inviata"
+                  ? "ℹ️ Invio automatico non attivo. Usa 'Apri Email' qui sotto."
+                  : "⚠️ Invio automatico fallito: " + emailSendStatus + ". Usa 'Apri Email' qui sotto."}
+          </div>
+        )}
         <EmailPanel emailContent={emailContent} lang={lang} emailTab={emailTab} setEmailTab={setEmailTab} copied={copied} setCopied={setCopied}/>
         {!isJag&&<a href="https://maps.app.goo.gl/wymNzDG1JsSoHg8j8" target="_blank" rel="noreferrer"
           style={{display:"block",textAlign:"center",marginBottom:".8rem",fontSize:".7rem",color:"var(--gold)",fontWeight:500,letterSpacing:".06em",textDecoration:"none"}}>
@@ -2404,12 +2427,10 @@ const root = ReactDOM.createRoot(container);
 root.render(<AlpstayMobility/>);
   </script>
 
-  <!-- EmailJS — invio automatico a info@alpstay.eu -->
   <script>
-    (function(){ emailjs.init({ publicKey: "65-IyBQx_A0DUK8-N" }); window.emailjs = emailjs; })();
+    (function(){ emailjs.init({ publicKey: "65-IyBQx_A0DUK8-N" }); window.emailjs = emailjs; console.log("✅ EmailJS init OK"); })();
   </script>
 
-  <!-- Firebase — Progetto: experiencesalpstay -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
     import { getFirestore, doc, runTransaction, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
@@ -2424,7 +2445,7 @@ root.render(<AlpstayMobility/>);
     const app = initializeApp(firebaseConfig);
     window.firebaseDB = getFirestore(app);
     window.firebaseModules = { doc, runTransaction, collection, addDoc, serverTimestamp };
-    console.log("✅ Alpstay Experiences — Firebase connesso");
+    console.log("✅ Firebase connesso");
   </script>
 </body>
 </html>
